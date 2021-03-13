@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="shortcut icon" type="image/x-icon" href="./pong.ico">
+  <title>Pong</title>
+
+  <style>
+    canvas {
+      position: absolute;
+      margin: auto;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+  </style>
+</head>
+
+<body onmousemove="showCoords(event)">
+  <script>
+    const wdth = 700, hght = 500, pi = Math.PI;
+    const upArrow = 38, downArrow = 40;
+    var canvas, ctx, keystate;
+    let pS = 0, aiS = 0;
+
+    class Player {
+      constructor(x, y, w, h, hght) {
+        this.x = x;
+        this.y = y;
+        this.width = w;
+        this.height = h
+      }
+
+      draw() {
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+    }
+
+    //sets player info
+    class User extends Player {
+      constructor(x, y, w, h, hght) {
+        super(x, y, w, h, hght);
+      }
+
+      update() {
+        if (keystate[upArrow]) { this.y -= 7; }
+        if (keystate[downArrow]) { this.y += 7; }
+        this.y = Math.max(Math.min(this.y, hght - this.height), 0);
+      }
+    }
+
+    class AI extends Player {
+      constructor(x, y, w, h, hght) {
+        super(x, y, w, h, hght);
+      }
+
+      update() {
+        //calculate ideal position
+        let desty = ball.y - (this.height - ball.side) * 0.75; //0.5
+        //ease the movement towards the ideal position
+        this.y += (desty - this.y) * 0.1;
+        //keep the paddle inside of the canvas
+        this.y = Math.max(Math.min(this.y, hght - this.height), 0);
+      }
+    }
+
+    const user = new User(null, null, 20, 100, hght);
+    const ai = new AI(null, null, 20, 100, hght);
+
+    //sets ball info
+    const ball = {
+      x: null,
+      y: null,
+      vel: null,
+      side: 20,
+      speed: 8,
+
+      serve: function (side) {
+        let r = Math.random();
+        this.x = side === 1 ? user.x + user.width : ai.x - this.side;
+        this.y = (hght - this.side) * r;
+
+        let phi = 0.1 * pi * (1 - 2 * r);
+        this.vel = {
+          x: side * this.speed * Math.cos(phi),
+          y: this.speed * Math.sin(phi),
+        }
+      },
+
+      update: function () {
+        //update position with current velocity
+        this.x += this.vel.x;
+        this.y += this.vel.y;
+        // check if out of the canvas in the y direction
+        if (0 > this.y || this.y + this.side > hght) {
+          let offset = this.vel.y < 0 ?
+            0 - this.y : hght - (this.y + this.side);
+          this.y += 2 * offset;
+          this.vel.y *= -1;
+        }
+
+        const AABBIntersect = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && ay < by + bh && bx < ax + aw && by < ay + ah;
+
+        let pdle = this.vel.x < 0 ? user : ai;
+        if (AABBIntersect(pdle.x, pdle.y, pdle.width, pdle.height,
+          this.x, this.y, this.side, this.side)) {
+          // set the x position and calculate reflection angle
+          this.x = pdle === user ?
+            user.x + user.width : ai.x - this.side;
+          let n = (this.y + this.side - pdle.y)
+            / (pdle.height + this.side);
+          let phi = 0.25 * pi * (2 * n - 1);
+          // calculate smash value and update velocity
+          let smash = Math.abs(phi) > 0.2 * pi ? 1.5 : 1;
+          this.vel.x = smash * (pdle === user ? 1 : -1)
+            * this.speed * Math.cos(phi);
+          this.vel.y = smash * this.speed * Math.sin(phi);
+        }
+        //resets the ball when ball is outside of the canvas
+        //in the x direction
+        if (0 > this.x + this.side || this.x > wdth) {
+          this.serve(pdle === user ? 1 : -1);
+          //sets the score according to the x direction
+          if (this.x > wdth) {
+            pS++;
+            console.log("Player: " + pS);
+          } else if (this.x < 333) {
+            aiS++;
+            console.log("AI: " + aiS);
+          }
+        }
+      },
+      //Draw the ball to the canvas
+      draw: function () {
+        ctx.fillRect(this.x, this.y, this.side, this.side);
+      }
+    };
+
+    function main() {
+      canvas = document.createElement("canvas");
+      canvas.width = wdth;
+      canvas.height = hght;
+      ctx = canvas.getContext("2d");
+      document.body.appendChild(canvas);
+      ctx.font = '20px Alpha';
+      console.log(`Player: ${pS}; AI: ${aiS}`);
+
+      keystate = {};
+      document.addEventListener("keydown", function (evt) {
+        keystate[evt.keyCode] = true;
+      });
+      document.addEventListener("keyup", function (evt) {
+        delete keystate[evt.keyCode];
+      });
+
+      init();
+
+      const loop = () => {
+        update();
+        draw();
+
+        window.requestAnimationFrame(loop, canvas);
+      };
+      window.requestAnimationFrame(loop, canvas);
+    }
+
+    function init() {
+      user.x = user.width;
+      user.y = (hght - user.height) / 2;
+
+      ai.x = wdth - (user.width + ai.width);
+      ai.y = (hght - ai.height) / 2;
+
+      ball.serve(1);
+    }
+    /*
+    function update() {
+      //ctx.fillStyle = "#000000";
+      ctx.fillText(" 524 | 568 ",  wdth / 2, 45);
+      ball.update();
+      player.update(); 
+      ai.update();
+    }
+    */
+    function draw() {
+      ctx.fillRect(0, 0, wdth, hght);
+
+      ctx.save();
+
+      ctx.fillStyle = "#ffffff";
+
+      ball.draw();
+      user.draw();
+      ai.draw();
+      var w = 4;
+      var x = (wdth - w) * 0.5;
+      var y = 0;
+      var step = hght / 15; //makes the middle, higher num., more lines
+      while (y < hght) {
+        ctx.fillRect(x, y + step * 0.25, w, step * 0.5);
+        y += step;
+      }
+
+      ctx.restore();
+    }
+
+    function update() {
+      //ctx.fillText(pS + " | " + aiS,  wdth / 2, 45);
+      ball.update();
+      user.update();
+      ai.update();
+    }
+
+    main();
+
+    function showCoords(event) {
+      let x = event.clientX;
+      let y = event.clientY;
+      let coor = `X coords: ${x}, Y coords: ${y}`;
+      document.getElementById("Coords").innerHTML = coor;
+    }
+  </script>
+  <p id="Coords"></p>
+</body>
+
+</html>
