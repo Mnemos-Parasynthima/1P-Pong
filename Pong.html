@@ -76,12 +76,8 @@
 
         keystate = {};
 
-        document.addEventListener('keydown', (e) => {
-          keystate[e.key] = true;
-        });
-        document.addEventListener('keyup', (e) => {
-          delete keystate[e.key];
-        });
+        document.addEventListener('keydown', (e) => keystate[e.key] = true);
+        document.addEventListener('keyup', (e) => delete keystate[e.key]);
 
         init();
 
@@ -94,6 +90,7 @@
         window.requestAnimationFrame(loop, canvas);
       };
 
+      console.log('Credit to Ale for audio');
       main();
     </script>
   </body>
